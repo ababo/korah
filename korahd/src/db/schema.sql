@@ -13,4 +13,6 @@ INSERT INTO schema(version)
 VALUES (0);
 
 INSERT INTO config(key, value)
-VALUES ("llm_model", "qwen2.5");
+VALUES
+    ("llm_model", "qwen2.5"),
+    ("ollama_url", "http://localhost:11434");

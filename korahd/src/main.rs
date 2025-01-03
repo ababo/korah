@@ -1,14 +1,30 @@
 mod db;
+mod llm;
+mod util;
 
-use crate::db::Db;
+use crate::{
+    db::Db,
+    llm::{ollama::Ollama, Llm},
+    util::fmt::ErrorChainDisplay,
+};
 use clap::Parser;
-use log::error;
-use std::path::PathBuf;
+use log::{error, info, LevelFilter};
+use std::{path::PathBuf, process::exit};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("db")]
-    Db(#[from] db::Error),
+    Db(
+        #[from]
+        #[source]
+        crate::db::Error,
+    ),
+    #[error("llm")]
+    Llm(
+        #[from]
+        #[source]
+        crate::llm::Error,
+    ),
 }
 
 #[derive(clap::Parser)]
@@ -18,10 +34,19 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() {
     let args = Args::parse();
+    if let Err(err) = run(args).await {
+        error!("failed to run: {}", ErrorChainDisplay(&err));
+        exit(1);
+    }
+}
 
-    env_logger::builder().format_timestamp_millis().init();
+async fn run(args: Args) -> Result<(), Error> {
+    env_logger::builder()
+        .filter_level(LevelFilter::Info)
+        .format_timestamp_millis()
+        .init();
 
     let db = if let Some(path) = args.db_path {
         Db::open(path).await
@@ -29,8 +54,14 @@ async fn main() -> Result<(), Error> {
         Db::open_in_memory().await
     }?;
 
+    let ollama_url = db.config_value("ollama_url").await?;
     let llm_model: String = db.config_value("llm_model").await?;
-    error!("llm model {llm_model}");
+
+    let ollama = Ollama::new(ollama_url)?;
+
+    info!("started preparing llm model '{llm_model}'");
+    ollama.prepare_model(&llm_model).await?;
+    info!("finished preparing llm model '{llm_model}'");
 
     Ok(())
 }

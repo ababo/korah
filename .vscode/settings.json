@@ -1,8 +1,11 @@
 {
     "cSpell.words": [
         "korahd",
+        "ollama",
         "qwen",
+        "reqwest",
         "rusqlite",
+        "serde",
         "thiserror"
     ]
 }

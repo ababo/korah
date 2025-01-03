@@ -7,9 +7,13 @@ use tokio_rusqlite::Connection;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("config value parse")]
-    ConfigValueParse(Box<dyn StdError + Send>),
+    ConfigValueParse(#[source] Box<dyn StdError + Send>),
     #[error("tokio_rusqlite")]
-    TokioRusqlite(#[from] tokio_rusqlite::Error),
+    TokioRusqlite(
+        #[from]
+        #[source]
+        tokio_rusqlite::Error,
+    ),
     #[error("unsupported schema version")]
     UnsupportedSchemaVersion,
 }
