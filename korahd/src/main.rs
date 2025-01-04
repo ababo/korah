@@ -1,10 +1,12 @@
 mod db;
 mod llm;
+mod tool;
 mod util;
 
 use crate::{
     db::Db,
     llm::{ollama::Ollama, Llm},
+    tool::create_tools,
     util::fmt::ErrorChainDisplay,
 };
 use clap::Parser;
@@ -47,6 +49,8 @@ async fn run(args: Args) -> Result<(), Error> {
         .filter_level(LevelFilter::Info)
         .format_timestamp_millis()
         .init();
+
+    let _tools = create_tools();
 
     let db = if let Some(path) = args.db_path {
         Db::open(path).await

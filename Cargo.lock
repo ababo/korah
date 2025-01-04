@@ -738,7 +738,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "korahsvc"
+name = "korahd"
 version = "0.1.0"
 dependencies = [
  "clap",
