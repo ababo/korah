@@ -1,34 +1,50 @@
-mod find_files;
+pub mod find_files;
 
-use find_files::FindFiles;
-use serde_json::value::RawValue;
-use std::collections::HashMap;
-use tokio::sync::{mpsc::Sender, oneshot::Receiver};
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedReceiver;
 
-#[derive(thiserror::Error, Debug)]
+/// A tool error.
+#[derive(Debug, thiserror::Error)]
 pub enum Error {}
 
-#[derive(serde::Serialize, Debug)]
-pub struct ToolOutput {
-    #[serde(flatten)]
-    tool_output: Box<RawValue>,
+impl Error {
+    /// Returns a corresponding HTTP status.
+    pub fn status(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
+    }
+
+    /// Returns a corresponding code.
+    pub fn code(&self) -> &str {
+        "bad request"
+    }
 }
 
+/// Tool call parameters.
+#[derive(Deserialize)]
+pub struct Params<P> {
+    #[serde(flatten)]
+    tool_specific: P,
+}
+
+/// Tool-generated event.
+#[derive(Debug, Serialize)]
+pub struct Event<E> {
+    #[serde(flatten)]
+    tool_specific: E,
+}
+
+/// Generic tool.
 pub trait Tool {
+    /// A tool-specific parameters.
+    type Params;
+
+    /// A tool-specific event.
+    type Event;
+
+    /// Calls the tool with given parameters getting an event stream.
     fn call(
         &self,
-        params: &RawValue,
-        cancel: Receiver<()>,
-        output: Sender<ToolOutput>,
-    ) -> Result<(), Error>;
-
-    fn params_schema(&self) -> Box<RawValue>;
-}
-
-pub fn create_tools() -> HashMap<String, Box<dyn Tool>> {
-    fn tool(name: &str, tool: impl Tool + 'static) -> (String, Box<dyn Tool>) {
-        (name.to_string(), Box::new(tool))
-    }
-    let tools = [tool("find_files", FindFiles::new())];
-    tools.into_iter().collect()
+        params: Params<Self::Params>,
+    ) -> Result<UnboundedReceiver<Event<Self::Event>>, Error>;
 }

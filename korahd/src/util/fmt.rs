@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter, Result},
 };
 
-/// Wrapper to write error chain for Display formatting.
+/// A wrapper for writing error chains.
 pub struct ErrorChainDisplay<'a, E: Error>(pub &'a E);
 
 impl<E: Error> Display for ErrorChainDisplay<'_, E> {

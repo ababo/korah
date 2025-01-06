@@ -1,25 +1,33 @@
+mod api;
 mod db;
 mod llm;
 mod tool;
 mod util;
 
 use crate::{
+    api::create_api,
     db::Db,
     llm::{ollama::Ollama, Llm},
-    tool::create_tools,
     util::fmt::ErrorChainDisplay,
 };
 use clap::Parser;
 use log::{error, info, LevelFilter};
-use std::{path::PathBuf, process::exit};
+use std::{net::SocketAddr, path::PathBuf, process::exit};
+use tokio::net::TcpListener;
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
+#[derive(Debug, thiserror::Error)]
+enum Error {
     #[error("db")]
     Db(
         #[from]
         #[source]
         crate::db::Error,
+    ),
+    #[error("io")]
+    Io(
+        #[from]
+        #[source]
+        std::io::Error,
     ),
     #[error("llm")]
     Llm(
@@ -46,11 +54,10 @@ async fn main() {
 
 async fn run(args: Args) -> Result<(), Error> {
     env_logger::builder()
-        .filter_level(LevelFilter::Info)
         .format_timestamp_millis()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
         .init();
-
-    let _tools = create_tools();
 
     let db = if let Some(path) = args.db_path {
         Db::open(path).await
@@ -66,6 +73,12 @@ async fn run(args: Args) -> Result<(), Error> {
     info!("started preparing llm model '{llm_model}'");
     ollama.prepare_model(&llm_model).await?;
     info!("finished preparing llm model '{llm_model}'");
+
+    let api_address: SocketAddr = db.config_value("api_address").await?;
+    let listener = TcpListener::bind(api_address).await?;
+    let api = create_api(db, ollama);
+
+    axum::serve(listener, api).await?;
 
     Ok(())
 }

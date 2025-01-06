@@ -1,6 +1,7 @@
 use crate::db::{Db, Error};
 
 impl Db {
+    /// Returns a schema version if the database is not empty.
     pub async fn schema_version(&self) -> Result<Option<u32>, Error> {
         self.conn
             .call(|conn| {

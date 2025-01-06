@@ -1,12 +1,14 @@
 use crate::llm::{Error, Llm};
 use reqwest::{Client, Url};
+use serde::Serialize;
 
+/// An Ollama LLM client.
 pub struct Ollama {
     base_url: Url,
     client: Client,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize)]
 struct PullRequestPayload<'a> {
     model: &'a str,
     insecure: bool,
@@ -14,6 +16,7 @@ struct PullRequestPayload<'a> {
 }
 
 impl Ollama {
+    /// Creates an Ollama instance.
     pub fn new(base_url: Url) -> Result<Self, Error> {
         if base_url.cannot_be_a_base() {
             return Err(Error::UnsupportedUrl);

@@ -2,6 +2,7 @@ use crate::db::{Db, Error};
 use std::{error::Error as StdError, str::FromStr};
 
 impl Db {
+    /// Retrieves a config value for a given key.
     pub async fn config_value<'a, T, E>(&self, key: &'static str) -> Result<T, Error>
     where
         T: FromStr<Err = E>,

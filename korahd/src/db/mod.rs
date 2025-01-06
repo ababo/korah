@@ -4,7 +4,8 @@ mod schema;
 use std::{error::Error as StdError, path::Path};
 use tokio_rusqlite::Connection;
 
-#[derive(thiserror::Error, Debug)]
+/// A database error.
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("config value parse")]
     ConfigValueParse(#[source] Box<dyn StdError + Send>),
@@ -18,11 +19,13 @@ pub enum Error {
     UnsupportedSchemaVersion,
 }
 
+/// A database for storing configuration, history data, etc.
 pub struct Db {
     conn: Connection,
 }
 
 impl Db {
+    /// Opens a database from an sqlite3 file.
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, Error> {
         let conn = Connection::open(path).await?;
 
@@ -43,6 +46,7 @@ impl Db {
         Ok(db)
     }
 
+    /// Opens an in-memory database with default configuration.
     pub async fn open_in_memory() -> Result<Self, Error> {
         Self::open(":memory:").await
     }
