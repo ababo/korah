@@ -1,6 +1,7 @@
 pub mod find_files;
 
 use reqwest::StatusCode;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -21,7 +22,7 @@ impl Error {
 }
 
 /// Tool call parameters.
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct Params<P> {
     #[serde(flatten)]
     tool_specific: P,

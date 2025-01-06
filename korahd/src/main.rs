@@ -4,12 +4,7 @@ mod llm;
 mod tool;
 mod util;
 
-use crate::{
-    api::create_api,
-    db::Db,
-    llm::{ollama::Ollama, Llm},
-    util::fmt::ErrorChainDisplay,
-};
+use crate::{api::create_api, db::Db, llm::ollama::Ollama, util::fmt::ErrorChainDisplay};
 use clap::Parser;
 use log::{error, info, LevelFilter};
 use std::{net::SocketAddr, path::PathBuf, process::exit};
@@ -68,15 +63,15 @@ async fn run(args: Args) -> Result<(), Error> {
     let ollama_url = db.config_value("ollama_url").await?;
     let llm_model: String = db.config_value("llm_model").await?;
 
-    let ollama = Ollama::new(ollama_url)?;
+    let llm = Ollama::new_boxed(ollama_url)?;
 
     info!("started preparing llm model '{llm_model}'");
-    ollama.prepare_model(&llm_model).await?;
+    llm.prepare_model(&llm_model).await?;
     info!("finished preparing llm model '{llm_model}'");
 
     let api_address: SocketAddr = db.config_value("api_address").await?;
     let listener = TcpListener::bind(api_address).await?;
-    let api = create_api(db, ollama);
+    let api = create_api(db, llm);
 
     axum::serve(listener, api).await?;
 

@@ -6,6 +6,7 @@
         "qwen",
         "reqwest",
         "rusqlite",
+        "schemars",
         "serde",
         "thiserror"
     ]

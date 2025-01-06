@@ -11,6 +11,7 @@ use axum::{
 use axum_extra::extract::WithRejection;
 use futures::{stream::BoxStream, StreamExt};
 use log::warn;
+use schemars::{schema::RootSchema, schema_for, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
@@ -24,14 +25,14 @@ pub trait ApiTool {
         params: Box<RawValue>,
     ) -> Result<BoxStream<'static, Box<RawValue>>, Error>;
 
-    /// Returns JSON-schema of the tool call parameters.
-    fn params_schema(&self) -> Box<RawValue>;
+    /// Returns the tool metadata.
+    fn metadata(&self) -> RootSchema;
 }
 
 impl<T> ApiTool for T
 where
     T: Tool,
-    T::Params: DeserializeOwned,
+    T::Params: DeserializeOwned + JsonSchema,
     T::Event: Debug + Send + Serialize + 'static,
 {
     fn api_call(
@@ -56,8 +57,10 @@ where
         Ok(events.boxed())
     }
 
-    fn params_schema(&self) -> Box<RawValue> {
-        todo!()
+    fn metadata(&self) -> RootSchema {
+        // The parameters' schema title and description are
+        // used as the tool's name and description respectively.
+        schema_for!(T::Params)
     }
 }
 

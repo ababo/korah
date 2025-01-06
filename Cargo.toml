@@ -10,6 +10,7 @@ env_logger = "0.11.6"
 futures = "0.3.31"
 log = "0.4.22"
 reqwest = { features = ["json"], version = "0.12.12" }
+schemars = "0.8.21"
 serde = { features = ["derive"], version = "1.0.217" }
 serde_json = { features = ["raw_value"], version = "1.0.134" }
 thiserror = "2.0.9"

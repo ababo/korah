@@ -3,6 +3,7 @@ use crate::{
     util::fmt::ErrorChainDisplay,
 };
 use log::info;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::{
@@ -21,8 +22,11 @@ impl FindFiles {
 }
 
 /// Parameters specific to the FindFiles tool.
-#[derive(Deserialize)]
-pub struct FindFilesParams {}
+#[derive(Deserialize, JsonSchema)]
+#[schemars(rename = "find_files", description = "")]
+pub struct FindFilesParams {
+    _directory: PathBuf,
+}
 
 /// An event specific to the FindFiles tool.
 #[derive(Debug, Serialize)]

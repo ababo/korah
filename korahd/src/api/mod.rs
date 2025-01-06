@@ -1,9 +1,13 @@
+pub mod query;
 pub mod tool;
 
 use crate::{
-    api::tool::{call_tool, create_tools, ApiTools},
+    api::{
+        query::process_query,
+        tool::{call_tool, create_tools, ApiTools},
+    },
     db::Db,
-    llm::ollama::Ollama,
+    llm::BoxLlm,
     util::fmt::ErrorChainDisplay,
 };
 use axum::{
@@ -102,19 +106,20 @@ impl IntoResponse for Error {
 /// An internal state for API handlers.
 pub struct ApiState {
     _db: Db,
-    _ollama: Ollama,
+    _llm: BoxLlm,
     tools: ApiTools,
 }
 
 /// Creates an Axum API router.
-pub fn create_api(db: Db, ollama: Ollama) -> Router {
+pub fn create_api(db: Db, llm: BoxLlm) -> Router {
     let tools = create_tools();
     let state = Arc::new(ApiState {
         _db: db,
-        _ollama: ollama,
+        _llm: llm,
         tools,
     });
     Router::new()
+        .route("/query", post(process_query))
         .route("/tool", post(call_tool))
         .with_state(state)
 }
