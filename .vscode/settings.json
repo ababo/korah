@@ -2,12 +2,12 @@
     "cSpell.words": [
         "korahd",
         "ollama",
-        "oneshot",
         "qwen",
         "reqwest",
         "rusqlite",
         "schemars",
         "serde",
+        "strfmt",
         "thiserror"
     ]
 }

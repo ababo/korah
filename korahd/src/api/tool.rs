@@ -11,11 +11,18 @@ use axum::{
 use axum_extra::extract::WithRejection;
 use futures::{stream::BoxStream, StreamExt};
 use log::warn;
-use schemars::{schema::RootSchema, schema_for, JsonSchema};
+use schemars::{schema::SchemaObject, schema_for, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+/// A tool metadata.
+pub struct ToolMetadata {
+    pub name: String,
+    pub description: Option<String>,
+    pub params_schema: SchemaObject,
+}
 
 /// A tool wrapper for API dynamic dispatch.
 pub trait ApiTool {
@@ -26,7 +33,7 @@ pub trait ApiTool {
     ) -> Result<BoxStream<'static, Box<RawValue>>, Error>;
 
     /// Returns the tool metadata.
-    fn metadata(&self) -> RootSchema;
+    fn metadata(&self) -> ToolMetadata;
 }
 
 impl<T> ApiTool for T
@@ -57,20 +64,29 @@ where
         Ok(events.boxed())
     }
 
-    fn metadata(&self) -> RootSchema {
-        // The parameters' schema title and description are
-        // used as the tool's name and description respectively.
-        schema_for!(T::Params)
+    fn metadata(&self) -> ToolMetadata {
+        ToolMetadata {
+            name: self.name().to_owned(),
+            description: self.description().map(ToOwned::to_owned),
+            params_schema: schema_for!(T::Params).schema,
+        }
     }
 }
 
 /// A mapping from tool names to their corresponding tool instances.
 pub type ApiTools = HashMap<&'static str, Arc<dyn ApiTool + Send + Sync>>;
 
+macro_rules! add_tool {
+    ($tools:expr, $tool:expr) => {
+        let tool = $tool;
+        $tools.insert(tool.name(), Arc::new(tool));
+    };
+}
+
 /// Creates API tools.
 pub fn create_tools() -> ApiTools {
     let mut tools = ApiTools::new();
-    tools.insert("find_files", Arc::new(FindFiles::new()));
+    add_tool!(tools, FindFiles::new());
     tools
 }
 

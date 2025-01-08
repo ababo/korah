@@ -1,7 +1,9 @@
+pub mod context;
 pub mod ollama;
 
+use crate::api::{tool::ToolMetadata, ApiError};
 use futures::future::BoxFuture;
-use schemars::schema::RootSchema;
+use reqwest::StatusCode;
 use serde_json::value::RawValue;
 
 /// An LLM error.
@@ -17,10 +19,25 @@ pub enum Error {
     UnsupportedUrl,
 }
 
+impl ApiError for Error {
+    fn status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn code(&self) -> &str {
+        use Error::*;
+        match self {
+            Reqwest(_) => "llm_reqwest",
+            UnsupportedUrl => "llm_unsupported_url",
+        }
+    }
+}
+
 /// A tool call derived by LLM.
+#[derive(Debug)]
 pub struct ToolCall {
-    pub _name: String,
-    pub _params: Box<RawValue>,
+    pub name: String,
+    pub params: Box<RawValue>,
 }
 
 /// An LLM API client.
@@ -34,8 +51,9 @@ pub trait Llm {
     /// Derives a tool call from a given query.
     fn derive_tool_call(
         &self,
-        tools: &[RootSchema],
-        query: &str,
+        model: String,
+        tools: Vec<ToolMetadata>,
+        query: String,
     ) -> BoxFuture<Result<Option<ToolCall>, Error>>;
 }
 

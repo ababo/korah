@@ -1,5 +1,6 @@
 pub mod find_files;
 
+use crate::api::ApiError;
 use reqwest::StatusCode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -9,15 +10,13 @@ use tokio::sync::mpsc::UnboundedReceiver;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {}
 
-impl Error {
-    /// Returns a corresponding HTTP status.
-    pub fn status(&self) -> StatusCode {
-        StatusCode::BAD_REQUEST
+impl ApiError for Error {
+    fn status(&self) -> StatusCode {
+        unreachable!();
     }
 
-    /// Returns a corresponding code.
-    pub fn code(&self) -> &str {
-        "bad request"
+    fn code(&self) -> &str {
+        unreachable!();
     }
 }
 
@@ -25,7 +24,7 @@ impl Error {
 #[derive(Deserialize, JsonSchema)]
 pub struct Params<P> {
     #[serde(flatten)]
-    tool_specific: P,
+    _tool_specific: P,
 }
 
 /// Tool-generated event.
@@ -48,4 +47,12 @@ pub trait Tool {
         &self,
         params: Params<Self::Params>,
     ) -> Result<UnboundedReceiver<Event<Self::Event>>, Error>;
+
+    /// An optional tool description.
+    fn description(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// A tool name.
+    fn name(&self) -> &'static str;
 }

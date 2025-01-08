@@ -16,4 +16,5 @@ INSERT INTO config(key, value)
 VALUES
     ("api_address", "0.0.0.0:9321"),
     ("llm_model", "qwen2.5"),
-    ("ollama_url", "http://localhost:11434");
+    ("ollama_url", "http://localhost:11434"),
+    ("query_text", "Using the context {context} derive a tool call for the following query. {query}");

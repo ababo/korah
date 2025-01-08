@@ -8,7 +8,7 @@ use tokio_rusqlite::Connection;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("config value parse")]
-    ConfigValueParse(#[source] Box<dyn StdError + Send>),
+    ConfigValueParse(#[source] Box<dyn StdError + Send + Sync>),
     #[error("tokio_rusqlite")]
     TokioRusqlite(
         #[from]

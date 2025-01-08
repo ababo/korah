@@ -69,4 +69,8 @@ impl Tool for FindFiles {
         });
         Ok(receiver)
     }
+
+    fn name(&self) -> &'static str {
+        "find_files"
+    }
 }

@@ -6,7 +6,7 @@ impl Db {
     pub async fn config_value<'a, T, E>(&self, key: &'static str) -> Result<T, Error>
     where
         T: FromStr<Err = E>,
-        E: StdError + Send + 'static,
+        E: StdError + Send + Sync + 'static,
     {
         let value = self
             .conn
