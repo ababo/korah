@@ -82,7 +82,7 @@ fn create_tool_call(response: ChatResponsePayload) -> Option<ToolCall> {
     if calls.len() == 1 {
         let call = calls.remove(0);
         Some(ToolCall {
-            name: call.function.name,
+            tool: call.function.name,
             params: call.function.arguments,
         })
     } else {

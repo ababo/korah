@@ -1,5 +1,6 @@
 pub mod ollama;
 
+use serde::Serialize;
 use serde_json::value::RawValue;
 
 /// An LLM API error.
@@ -26,9 +27,9 @@ impl From<ureq::Error> for Error {
 }
 
 /// A tool call derived by LLM.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ToolCall {
-    pub name: String,
+    pub tool: String,
     pub params: Box<RawValue>,
 }
 

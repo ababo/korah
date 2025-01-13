@@ -63,6 +63,13 @@ enum Error {
 struct Args {
     #[clap(long, short='c', help="Path to config", default_value=default_config_path())]
     config_path: PathBuf,
+    #[clap(
+        long,
+        short = 'd',
+        help = "Derive tool call only",
+        default_value = "false"
+    )]
+    derive_only: bool,
     #[clap(long, short = 'a', help = "LLM API [default in config].")]
     llm_api: Option<LlmApi>,
     #[clap(help = "Query in human language")]
@@ -138,9 +145,15 @@ fn run(args: Args) -> Result<(), Error> {
             let Some(call) = llm.derive_tool_call(&query)? else {
                 continue;
             };
-            info!("derived call {}({})", call.name, call.params);
 
-            let Some(tool) = tools.get(&call.name.as_str()) else {
+            let call_json = serde_json::to_string(&call).unwrap();
+            if args.derive_only {
+                println!("{call_json}");
+                return Ok(());
+            }
+            info!("derived call {call_json}");
+
+            let Some(tool) = tools.get(&call.tool.as_str()) else {
                 warn!("derived tool not found");
                 continue;
             };
