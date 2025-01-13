@@ -1,20 +1,19 @@
-mod config;
-mod context;
 mod llm;
 mod tool;
 mod util;
 
 use crate::{
-    context::Context, llm::ollama::Ollama, tool::create_tools, util::fmt::ErrorChainDisplay,
+    llm::{create_llm_client, Context, LlmConfig},
+    tool::create_tools,
+    util::fmt::ErrorChainDisplay,
 };
 use clap::{
     builder::{IntoResettable, OsStr},
     Parser,
 };
-use config::{Config, LlmApi};
 use log::{error, info, warn};
+use serde::Deserialize;
 use std::{
-    collections::HashMap,
     ffi::OsString,
     path::PathBuf,
     process::exit,
@@ -23,7 +22,13 @@ use std::{
         Arc,
     },
 };
-use strfmt::strfmt;
+
+/// A program configuration.
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    pub llm: LlmConfig,
+    pub num_derive_tries: u32,
+}
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -37,8 +42,6 @@ enum Error {
         #[source]
         crate::llm::Error,
     ),
-    #[error("{0} config missing")]
-    LlmConfigMissing(&'static str),
     #[error("failed to perform io")]
     SerdeJson(
         #[from]
@@ -70,17 +73,8 @@ struct Args {
         default_value = "false"
     )]
     derive_only: bool,
-    #[clap(long, short = 'a', help = "LLM API [default in config].")]
-    llm_api: Option<LlmApi>,
     #[clap(help = "Query in human language")]
     query: String,
-    #[clap(
-        long,
-        short = 'n',
-        help = "Number of tries to derive a tool call",
-        default_value = "3"
-    )]
-    num_derive_tries: u32,
 }
 
 fn default_config_path() -> impl IntoResettable<OsStr> {
@@ -117,31 +111,21 @@ fn run(args: Args) -> Result<(), Error> {
 
     let tools = create_tools();
     let tools_meta: Vec<_> = tools.values().map(|t| t.meta()).collect();
-    let llm = match config.llm.api {
-        LlmApi::Ollama => {
-            let Some(ollama_config) = config.llm.ollama else {
-                return Err(Error::LlmConfigMissing("ollama"));
-            };
-            Ollama::new_boxed(ollama_config, tools_meta)
-        }
-    };
-
-    let context = serde_json::to_string(&Context::new()).unwrap();
-    let mut vars = HashMap::new();
-    vars.insert("context".to_owned(), context);
-    vars.insert("query".to_owned(), args.query.clone());
-    let query = strfmt(&config.llm.query_fmt, &vars).unwrap();
+    let llm = create_llm_client(&config.llm, tools_meta)?;
+    let query = Context::new().contextualize(&config.llm, args.query);
 
     let cancel = Arc::new(AtomicBool::new(false));
-    let cancel_cloned = cancel.clone();
-    ctrlc::set_handler(move || {
-        warn!("received cancelling request");
-        cancel_cloned.store(true, Ordering::SeqCst);
-    })
-    .unwrap();
+    {
+        let cancel_cloned = cancel.clone();
+        ctrlc::set_handler(move || {
+            warn!("received cancelling request");
+            cancel_cloned.store(true, Ordering::SeqCst);
+        })
+        .unwrap();
+    }
 
     let outputs = 'a: {
-        for _ in 0..args.num_derive_tries {
+        for _ in 0..config.num_derive_tries {
             let Some(call) = llm.derive_tool_call(&query)? else {
                 continue;
             };

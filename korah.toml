@@ -1,3 +1,5 @@
+num_derive_tries = 3
+
 [llm]
 api = "ollama"
 query_fmt = "Using the context {context} derive a tool call for the following query. {query}"

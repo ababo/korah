@@ -1,20 +1,26 @@
+use crate::{
+    llm::{BoxLlm, Error, LlmClient, ToolCall},
+    tool::ToolMeta,
+};
 use schemars::schema::SingleOrVec;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use url::Url;
 
-use crate::{
-    config::OllamaConfig,
-    llm::{BoxLlm, Error, Llm, ToolCall},
-    tool::ToolMeta,
-};
+/// An Ollama LLM API configuration.
+#[derive(Clone, Debug, Deserialize)]
+pub struct OllamaConfig {
+    pub base_url: Url,
+    pub model: String,
+}
 
 /// An Ollama API client.
-pub struct Ollama {
+pub struct OllamaClient {
     config: OllamaConfig,
     tools: Vec<RequestTool>,
 }
 
-impl Ollama {
+impl OllamaClient {
     /// Creates a boxed Ollama instance.
     pub fn new_boxed(config: OllamaConfig, tools: Vec<ToolMeta>) -> BoxLlm {
         let tools = create_request_tools(tools);
@@ -22,7 +28,7 @@ impl Ollama {
     }
 }
 
-impl Llm for Ollama {
+impl LlmClient for OllamaClient {
     fn derive_tool_call(&self, query: &str) -> Result<Option<ToolCall>, Error> {
         let messages = vec![Message {
             role: Role::User,

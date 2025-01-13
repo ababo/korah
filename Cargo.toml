@@ -14,7 +14,6 @@ schemars = { features = ["chrono"], version = "0.8.21" }
 serde = { features = ["derive"], version = "1.0.217" }
 serde_json = { features = ["raw_value"], version = "1.0.134" }
 strfmt = "0.2.4"
-strum = { features = ["derive"], version = "0.26.3" }
 sys-locale = "0.3.2"
 thiserror = "2.0.11"
 toml = "0.8.19"
