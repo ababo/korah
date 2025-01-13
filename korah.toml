@@ -1,0 +1,7 @@
+[llm]
+api = "ollama"
+query_fmt = "Using the context {context} derive a tool call for the following query. {query}"
+
+[llm.ollama]
+base_url = "http://localhost:11434"
+model = "qwen2.5"

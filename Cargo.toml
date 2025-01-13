@@ -1,22 +1,23 @@
-[workspace]
-members = ["korahd"]
-resolver = "2"
+[package]
+name = "korah"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
-axum = { features = ["macros"], version = "0.8.1" }
-axum-extra = "0.10.0"
-clap = { features = ["derive", "env"], version = "4.5.23" }
+[dependencies]
+chrono = { features = ["serde"], version = "0.4.39" }
+clap = { features = ["derive", "env", "string"], version = "4.5.23" }
+ctrlc = "3.4.5"
 env_logger = "0.11.6"
-futures = "0.3.31"
-log = "0.4.22"
-reqwest = { features = ["json"], version = "0.12.12" }
-schemars = "0.8.21"
+log = { features = ["serde"], version = "0.4.22" }
+regex = "1.11.1"
+schemars = { features = ["chrono"], version = "0.8.21" }
 serde = { features = ["derive"], version = "1.0.217" }
 serde_json = { features = ["raw_value"], version = "1.0.134" }
 strfmt = "0.2.4"
+strum = { features = ["derive"], version = "0.26.3" }
 sys-locale = "0.3.2"
-thiserror = "2.0.9"
-tokio = { features = ["macros", "rt-multi-thread"], version = "1.42.0" }
-tokio-rusqlite = "0.6.0"
-tokio-stream = "0.1.17"
+thiserror = "2.0.11"
+toml = "0.8.19"
+ureq = { features = ["json"], version = "2.12.1" }
+url = { features = ["serde"], version = "2.5.4" }
 whoami = "1.5.2"

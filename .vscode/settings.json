@@ -1,13 +1,14 @@
 {
     "cSpell.words": [
-        "korahd",
-        "ollama",
+        "chrono",
+        "korah",
+        "Ollama",
         "qwen",
-        "reqwest",
-        "rusqlite",
         "schemars",
         "serde",
         "strfmt",
-        "thiserror"
+        "thiserror",
+        "ureq",
+        "USERPROFILE"
     ]
 }
