@@ -32,6 +32,12 @@ pub enum Error {
         #[source]
         serde_json::Error,
     ),
+    #[error("failed to expand environment variables")]
+    Shellexpend(
+        #[from]
+        #[source]
+        shellexpand::path::LookupError<std::env::VarError>,
+    ),
 }
 
 /// A tool for query processing.

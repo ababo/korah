@@ -11,10 +11,9 @@ use clap::{
     builder::{IntoResettable, OsStr},
     Parser,
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::Deserialize;
 use std::{
-    ffi::OsString,
     path::PathBuf,
     process::exit,
     sync::{
@@ -79,20 +78,17 @@ struct Args {
 
 fn default_config_path() -> impl IntoResettable<OsStr> {
     #[cfg(unix)]
-    let paths: Vec<OsString> = vec![".".into(), "~/.config".into(), "/etc".into()];
+    let paths = vec![".", "$HOME/.config", "/etc"];
 
     #[cfg(windows)]
-    let paths: Vec<OsString> = vec![
-        ".".into(),
-        env::var_os("USERPROFILE").unwrap(),
-        env::var_os("SystemDrive").unwrap(),
-    ];
+    let paths = vec![".", "$USERPROFILE", "$SystemDrive"];
 
     const BASENAME: &str = "korah.toml";
     for path in paths {
         let filename = PathBuf::from(path).join(BASENAME);
+        let filename = shellexpand::path::env(&filename).unwrap();
         if filename.exists() {
-            return filename.into_os_string().into_resettable();
+            return filename.to_path_buf().into_os_string().into_resettable();
         }
     }
     BASENAME.into_resettable()
@@ -113,6 +109,7 @@ fn run(args: Args) -> Result<(), Error> {
     let tools_meta: Vec<_> = tools.values().map(|t| t.meta()).collect();
     let llm = create_llm_client(&config.llm, tools_meta)?;
     let query = Context::new().contextualize(&config.llm, args.query);
+    debug!("contextualized query '{query}'");
 
     let cancel = Arc::new(AtomicBool::new(false));
     {

@@ -2,6 +2,7 @@ use crate::{
     llm::{BoxLlm, Error, LlmClient, ToolCall},
     tool::ToolMeta,
 };
+use log::{debug, log_enabled};
 use schemars::schema::SingleOrVec;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -24,6 +25,9 @@ impl OllamaClient {
     /// Creates a boxed Ollama instance.
     pub fn new_boxed(config: OllamaConfig, tools: Vec<ToolMeta>) -> BoxLlm {
         let tools = create_request_tools(tools);
+        if log_enabled!(log::Level::Debug) {
+            debug!("ollama tools {}", serde_json::to_string(&tools).unwrap());
+        }
         Box::new(Self { config, tools })
     }
 }

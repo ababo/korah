@@ -2,7 +2,7 @@ pub mod ollama;
 
 use std::collections::HashMap;
 
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use ollama::{OllamaClient, OllamaConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -83,7 +83,7 @@ pub fn create_llm_client(config: &LlmConfig, tools: Vec<ToolMeta>) -> Result<Box
 pub struct Context {
     os_name: &'static str,
     system_locale: String,
-    time_now: NaiveDateTime,
+    time_now: DateTime<Utc>,
     username: String,
 }
 
@@ -93,7 +93,7 @@ impl Context {
         Context {
             os_name: std::env::consts::OS,
             system_locale: get_locale().unwrap_or("en-US".to_owned()),
-            time_now: Utc::now().naive_utc(),
+            time_now: Utc::now(),
             username: whoami::username(),
         }
     }

@@ -6,6 +6,8 @@
         "qwen",
         "schemars",
         "serde",
+        "shellexpand",
+        "Shellexpend",
         "strfmt",
         "thiserror",
         "ureq",

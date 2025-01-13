@@ -2,7 +2,7 @@ use crate::{
     tool::{Error, Tool},
     util::fmt::ErrorChainDisplay,
 };
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use log::warn;
 use regex::Regex;
 use schemars::JsonSchema;
@@ -21,19 +21,18 @@ use std::{
 /// Parameters specific to the FindFiles tool.
 #[derive(Deserialize, JsonSchema)]
 pub struct FindFilesParams {
-    #[schemars(description = "Without env. variables or tilde")]
     in_directory: PathBuf,
     is_directory: Option<bool>,
     is_symlink: Option<bool>,
-    #[schemars(description = "Optional ISO 8601 w/o timezone")]
-    min_time_created: Option<NaiveDateTime>,
-    #[schemars(description = "Optional ISO 8601 w/o timezone")]
-    max_time_created: Option<NaiveDateTime>,
-    #[schemars(description = "Optional ISO 8601 w/o timezone")]
-    min_time_modified: Option<NaiveDateTime>,
-    #[schemars(description = "Optional ISO 8601 w/o timezone")]
-    max_time_modified: Option<NaiveDateTime>,
-    #[schemars(description = "Optional, RE2-compatible.")]
+    #[schemars(description = "In ISO 8601 format")]
+    min_time_created: Option<DateTime<Utc>>,
+    #[schemars(description = "In ISO 8601 format")]
+    max_time_created: Option<DateTime<Utc>>,
+    #[schemars(description = "In ISO 8601 format")]
+    min_time_modified: Option<DateTime<Utc>>,
+    #[schemars(description = "In ISO 8601 format")]
+    max_time_modified: Option<DateTime<Utc>>,
+    #[schemars(description = "RE2-compatible.")]
     name_regex: Option<String>,
 }
 
@@ -66,7 +65,8 @@ impl Tool for FindFiles {
         params: FindFilesParams,
         cancel: Arc<AtomicBool>,
     ) -> Result<impl Iterator<Item = FindFilesOutput> + 'static, Error> {
-        let entries = read_dir(&params.in_directory)?;
+        let in_directory = shellexpand::path::full(&params.in_directory)?;
+        let entries = read_dir(&in_directory)?;
         let filter = params.try_into()?;
         Ok(FindFilesIterator {
             filter,
@@ -164,10 +164,10 @@ impl TryFrom<FindFilesParams> for Filter {
     type Error = Error;
 
     fn try_from(params: FindFilesParams) -> Result<Self, Error> {
-        let min_time_created = params.min_time_created.map(|t| t.and_utc().into());
-        let max_time_created = params.max_time_created.map(|t| t.and_utc().into());
-        let min_time_modified = params.min_time_modified.map(|t| t.and_utc().into());
-        let max_time_modified = params.max_time_modified.map(|t| t.and_utc().into());
+        let min_time_created = params.min_time_created.map(Into::into);
+        let max_time_created = params.max_time_created.map(Into::into);
+        let min_time_modified = params.min_time_modified.map(Into::into);
+        let max_time_modified = params.max_time_modified.map(Into::into);
         let name_regex = params.name_regex.as_deref().map(Regex::new).transpose()?;
         Ok(Self {
             is_directory: params.is_directory,
