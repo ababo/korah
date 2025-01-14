@@ -9,7 +9,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     ffi::OsStr,
-    fs::{read_dir, Metadata, ReadDir},
+    fs::{read_dir, File, Metadata, ReadDir},
+    io::{BufRead, BufReader},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -21,6 +22,8 @@ use std::{
 /// Parameters specific to the FindFiles tool.
 #[derive(Deserialize, JsonSchema)]
 pub struct FindFilesParams {
+    #[schemars(description = "RE2-compatible.")]
+    content_regex: Option<String>,
     in_directory: PathBuf,
     is_directory: Option<bool>,
     is_symlink: Option<bool>,
@@ -69,9 +72,18 @@ impl Tool for FindFiles {
         params: FindFilesParams,
         cancel: Arc<AtomicBool>,
     ) -> Result<impl Iterator<Item = FindFilesOutput> + 'static, Error> {
+        if params.is_directory == Some(true)
+            && (params.content_regex.is_some()
+                || params.max_size.is_some()
+                || params.min_size.is_some())
+        {
+            return Err(Error::InconsistentParams);
+        }
+
         let in_directory = shellexpand::path::full(&params.in_directory)?;
         let entries = read_dir(&in_directory)?;
         let filter = params.try_into()?;
+
         Ok(FindFilesIterator {
             filter,
             cancel,
@@ -81,6 +93,7 @@ impl Tool for FindFiles {
 }
 
 struct Filter {
+    content_regex: Option<Regex>,
     is_directory: Option<bool>,
     is_symlink: Option<bool>,
     min_size: Option<u64>,
@@ -188,7 +201,35 @@ impl Filter {
             }
         }
 
+        if let Some(content_regex) = &self.content_regex {
+            if meta.is_file() {
+                match Self::match_file_content(path, content_regex) {
+                    Ok(false) => return false,
+                    Err(err) => {
+                        warn!(
+                            "failed to match content for file {path}: {}",
+                            ErrorChainDisplay(&err)
+                        );
+                    }
+                    _ => (),
+                }
+            }
+        }
+
         true
+    }
+
+    fn match_file_content(path: &str, regex: &Regex) -> Result<bool, Error> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+
+        for line in reader.lines().map_while(Result::ok) {
+            if regex.is_match(&line) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 }
 
@@ -196,12 +237,18 @@ impl TryFrom<FindFilesParams> for Filter {
     type Error = Error;
 
     fn try_from(params: FindFilesParams) -> Result<Self, Error> {
+        let content_regex = params
+            .content_regex
+            .as_deref()
+            .map(Regex::new)
+            .transpose()?;
         let min_time_created = params.min_time_created.map(Into::into);
         let max_time_created = params.max_time_created.map(Into::into);
         let min_time_modified = params.min_time_modified.map(Into::into);
         let max_time_modified = params.max_time_modified.map(Into::into);
         let name_regex = params.name_regex.as_deref().map(Regex::new).transpose()?;
         Ok(Self {
+            content_regex,
             is_directory: params.is_directory,
             is_symlink: params.is_symlink,
             min_size: params.min_size,

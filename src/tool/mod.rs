@@ -14,6 +14,8 @@ use std::{
 /// A tool error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("inconsistent params")]
+    InconsistentParams,
     #[error("io error")]
     Io(
         #[from]
