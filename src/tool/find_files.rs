@@ -24,8 +24,12 @@ pub struct FindFilesParams {
     in_directory: PathBuf,
     is_directory: Option<bool>,
     is_symlink: Option<bool>,
+    #[schemars(description = "In bytes")]
+    min_size: Option<u64>,
     #[schemars(description = "In ISO 8601 format")]
     min_time_created: Option<DateTime<Utc>>,
+    #[schemars(description = "In bytes")]
+    max_size: Option<u64>,
     #[schemars(description = "In ISO 8601 format")]
     max_time_created: Option<DateTime<Utc>>,
     #[schemars(description = "In ISO 8601 format")]
@@ -79,7 +83,9 @@ impl Tool for FindFiles {
 struct Filter {
     is_directory: Option<bool>,
     is_symlink: Option<bool>,
+    min_size: Option<u64>,
     min_time_created: Option<SystemTime>,
+    max_size: Option<u64>,
     max_time_created: Option<SystemTime>,
     min_time_modified: Option<SystemTime>,
     max_time_modified: Option<SystemTime>,
@@ -96,6 +102,18 @@ impl Filter {
 
         if let Some(is_symlink) = self.is_symlink {
             if meta.is_symlink() != is_symlink {
+                return false;
+            }
+        }
+
+        if let Some(min_size) = self.min_size {
+            if meta.len() < min_size {
+                return false;
+            }
+        }
+
+        if let Some(max_size) = self.max_size {
+            if meta.len() > max_size {
                 return false;
             }
         }
@@ -172,7 +190,9 @@ impl TryFrom<FindFilesParams> for Filter {
         Ok(Self {
             is_directory: params.is_directory,
             is_symlink: params.is_symlink,
+            min_size: params.min_size,
             min_time_created,
+            max_size: params.max_size,
             max_time_created,
             min_time_modified,
             max_time_modified,
