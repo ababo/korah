@@ -93,27 +93,9 @@ struct Filter {
 }
 
 impl Filter {
-    fn is_matching(&self, path: &str, name: &OsStr, meta: &Metadata) -> bool {
-        if let Some(is_directory) = self.is_directory {
-            if meta.is_dir() != is_directory {
-                return false;
-            }
-        }
-
+    fn is_matching(&self, path: &str, name: &OsStr, mut meta: Metadata) -> bool {
         if let Some(is_symlink) = self.is_symlink {
             if meta.is_symlink() != is_symlink {
-                return false;
-            }
-        }
-
-        if let Some(min_size) = self.min_size {
-            if meta.len() < min_size {
-                return false;
-            }
-        }
-
-        if let Some(max_size) = self.max_size {
-            if meta.len() > max_size {
                 return false;
             }
         }
@@ -170,6 +152,38 @@ impl Filter {
                     return false;
                 }
             } else {
+                return false;
+            }
+        }
+
+        // Here we resolve a possible symlink.
+        // The following checks are only related to the final target.
+        if meta.is_symlink() {
+            match std::fs::metadata(path) {
+                Ok(m) => meta = m,
+                Err(err) => {
+                    warn!(
+                        "failed to get meta for symlink {path}: {}",
+                        ErrorChainDisplay(&err)
+                    );
+                }
+            }
+        }
+
+        if let Some(is_directory) = self.is_directory {
+            if meta.is_dir() != is_directory {
+                return false;
+            }
+        }
+
+        if let Some(min_size) = self.min_size {
+            if meta.len() < min_size {
+                return false;
+            }
+        }
+
+        if let Some(max_size) = self.max_size {
+            if meta.len() > max_size {
                 return false;
             }
         }
@@ -255,7 +269,7 @@ impl Iterator for FindFilesIterator {
                 };
             }
 
-            if self.filter.is_matching(&path, &entry.file_name(), &meta) {
+            if self.filter.is_matching(&path, &entry.file_name(), meta) {
                 return Some(FindFilesOutput { path: entry.path() });
             }
         }
