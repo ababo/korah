@@ -1,9 +1,11 @@
+mod config;
 mod llm;
 mod tool;
 mod util;
 
 use crate::{
-    llm::{create_llm_client, Context, LlmConfig},
+    config::Config,
+    llm::{create_llm_client, Context},
     tool::create_tools,
     util::fmt::ErrorChainDisplay,
 };
@@ -12,7 +14,6 @@ use clap::{
     Parser,
 };
 use log::{debug, error, info, warn};
-use serde::Deserialize;
 use std::{
     path::PathBuf,
     process::exit,
@@ -22,17 +23,16 @@ use std::{
     },
 };
 
-/// A program configuration.
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    pub llm: LlmConfig,
-    pub num_derive_tries: u32,
-}
-
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error("processing cancelled")]
     Cancelled,
+    #[error("failed to read config")]
+    Config(
+        #[from]
+        #[source]
+        crate::config::Error,
+    ),
     #[error("failed to derive tool call")]
     DeriveToolCall,
     #[error("llm error")]
@@ -100,10 +100,7 @@ fn run(args: Args) -> Result<(), Error> {
         .parse_default_env()
         .init();
 
-    let config: Config = {
-        let s = std::fs::read_to_string(args.config_path)?;
-        toml::from_str(&s)?
-    };
+    let config = Config::read(&args.config_path)?;
 
     let tools = create_tools();
     let tools_meta: Vec<_> = tools.values().map(|t| t.meta()).collect();

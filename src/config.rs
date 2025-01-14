@@ -1,31 +1,35 @@
+use crate::llm::LlmConfig;
 use serde::Deserialize;
-use strum::EnumString;
-use url::Url;
+use std::path::Path;
 
-#[derive(Clone, Copy, Debug, Deserialize, EnumString)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-pub enum LlmApi {
-    Ollama,
-}
-
-/// An Ollama LLM API configuration.
-#[derive(Debug, Deserialize)]
-pub struct OllamaConfig {
-    pub base_url: Url,
-    pub model: String,
-}
-
-/// An LLM API configuration.
-#[derive(Debug, Deserialize)]
-pub struct LlmConfig {
-    pub api: LlmApi,
-    pub ollama: Option<OllamaConfig>,
-    pub query_fmt: String,
+/// A program configuration error.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("failed to perform io")]
+    SerdeJson(
+        #[from]
+        #[source]
+        std::io::Error,
+    ),
+    #[error("failed to deserialize toml")]
+    TomlDe(
+        #[from]
+        #[source]
+        toml::de::Error,
+    ),
 }
 
 /// A program configuration.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub llm: LlmConfig,
+    pub num_derive_tries: u32,
+}
+
+impl Config {
+    /// Reads program configuration from a file.
+    pub fn read(path: &Path) -> Result<Self, Error> {
+        let s = std::fs::read_to_string(path)?;
+        toml::from_str(&s).map_err(Into::into)
+    }
 }
