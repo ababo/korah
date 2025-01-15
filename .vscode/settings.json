@@ -9,6 +9,7 @@
         "shellexpand",
         "Shellexpend",
         "strfmt",
+        "sysinfo",
         "thiserror",
         "ureq",
         "USERPROFILE"

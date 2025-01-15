@@ -1,6 +1,10 @@
 mod find_files;
+mod find_processes;
 
-use crate::{tool::find_files::FindFiles, util::fmt::ErrorChainDisplay};
+use crate::{
+    tool::{find_files::FindFiles, find_processes::FindProcesses},
+    util::fmt::ErrorChainDisplay,
+};
 use log::warn;
 use schemars::{schema::RootSchema, schema_for, JsonSchema};
 use serde::{de::DeserializeOwned, Serialize};
@@ -139,5 +143,6 @@ macro_rules! add_tool {
 pub fn create_tools() -> DynTools {
     let mut tools = DynTools::new();
     add_tool!(tools, FindFiles::new());
+    add_tool!(tools, FindProcesses::new());
     tools
 }

@@ -16,6 +16,7 @@ serde_json = { features = ["raw_value"], version = "1.0.134" }
 shellexpand = { features = ["path"], version = "3.1.0" }
 strfmt = "0.2.4"
 sys-locale = "0.3.2"
+sysinfo = "0.33.1"
 thiserror = "2.0.11"
 toml = "0.8.19"
 ureq = { features = ["json"], version = "2.12.1" }
