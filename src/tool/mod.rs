@@ -26,6 +26,12 @@ pub enum Error {
         #[source]
         std::io::Error,
     ),
+    #[error("netstat2 error")]
+    Netstat2(
+        #[from]
+        #[source]
+        netstat2::error::Error,
+    ),
     #[error("failed to parse regex")]
     Regex(
         #[from]

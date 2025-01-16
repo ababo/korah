@@ -3,6 +3,7 @@
         "chrono",
         "korah",
         "Ollama",
+        "pids",
         "qwen",
         "schemars",
         "serde",

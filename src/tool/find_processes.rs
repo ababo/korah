@@ -1,8 +1,10 @@
 use crate::tool::{Error, Tool};
+use netstat2::{get_sockets_info, AddressFamilyFlags, ProtocolFlags};
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc},
     thread::sleep,
@@ -29,6 +31,10 @@ pub struct FindProcessesParams {
     #[schemars(description = "In Bytes")]
     min_written_to_disk: Option<u64>,
     name_regex: Option<String>,
+    #[schemars(description = "Zero means any.")]
+    tcp_port: Option<u16>,
+    #[schemars(description = "Zero means any.")]
+    udp_port: Option<u16>,
 }
 
 /// An output specific to the FindProcesses tool.
@@ -41,6 +47,8 @@ pub struct FindProcessesOutput {
     name: String,
     pid: u32,
     read_from_disk: u64,
+    tcp_ports: Vec<u16>,
+    udp_ports: Vec<u16>,
     written_to_disk: u64,
 }
 
@@ -59,6 +67,8 @@ impl From<&Process> for FindProcessesOutput {
             name: process.name().to_string_lossy().to_string(),
             pid: process.pid().as_u32(),
             read_from_disk: disk_usage.total_read_bytes,
+            tcp_ports: Vec::new(),
+            udp_ports: Vec::new(),
             written_to_disk: disk_usage.total_written_bytes,
         }
     }
@@ -71,6 +81,55 @@ impl FindProcesses {
     /// Creates a FindProcesses instance.
     pub fn new() -> Self {
         FindProcesses
+    }
+
+    fn get_processes() -> HashMap<u32, FindProcessesOutput> {
+        let mut system = System::new_all();
+
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing().with_cpu(),
+        );
+
+        sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing().with_cpu(),
+        );
+
+        system
+            .processes()
+            .iter()
+            .map(|(pid, proc)| (pid.as_u32(), proc.into()))
+            .collect()
+    }
+
+    fn add_net_ports(processes: &mut HashMap<u32, FindProcessesOutput>) -> Result<(), Error> {
+        let af_flags = AddressFamilyFlags::IPV4 | AddressFamilyFlags::IPV6;
+        let proto_flags = ProtocolFlags::TCP | ProtocolFlags::UDP;
+        let sockets_info = get_sockets_info(af_flags, proto_flags)?;
+
+        use netstat2::ProtocolSocketInfo::*;
+        for si in sockets_info {
+            for pid in si.associated_pids {
+                let Some(process) = processes.get_mut(&pid) else {
+                    continue;
+                };
+                match &si.protocol_socket_info {
+                    Tcp(tcp_si) => {
+                        process.tcp_ports.push(tcp_si.local_port);
+                    }
+                    Udp(udp_si) => {
+                        process.udp_ports.push(udp_si.local_port);
+                    }
+                };
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -89,25 +148,11 @@ impl Tool for FindProcesses {
     ) -> Result<impl Iterator<Item = FindProcessesOutput> + 'static, Error> {
         let filter: Filter = params.try_into()?;
 
-        let mut system = System::new_all();
+        let mut processes = Self::get_processes();
+        Self::add_net_ports(&mut processes)?;
 
-        system.refresh_processes_specifics(
-            ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::nothing().with_cpu(),
-        );
-
-        sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-
-        system.refresh_processes_specifics(
-            ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::nothing().with_cpu(),
-        );
-
-        let processes: Vec<_> = system
-            .processes()
-            .values()
+        let processes: Vec<_> = processes
+            .into_values()
             .map(FindProcessesOutput::from)
             .filter(|p| filter.is_matching(p))
             .collect();
@@ -126,6 +171,8 @@ struct Filter {
     min_read_from_disk: Option<u64>,
     min_written_to_disk: Option<u64>,
     name_regex: Option<Regex>,
+    tcp_port: Option<u16>,
+    udp_port: Option<u16>,
 }
 
 impl Filter {
@@ -184,6 +231,26 @@ impl Filter {
             }
         }
 
+        if let Some(tcp_port) = &self.tcp_port {
+            if *tcp_port != 0 {
+                if !process.tcp_ports.iter().any(|p| p == tcp_port) {
+                    return false;
+                }
+            } else if process.tcp_ports.is_empty() {
+                return false;
+            }
+        }
+
+        if let Some(udp_port) = &self.udp_port {
+            if *udp_port != 0 {
+                if !process.udp_ports.iter().any(|p| p == udp_port) {
+                    return false;
+                }
+            } else if process.udp_ports.is_empty() {
+                return false;
+            }
+        }
+
         true
     }
 }
@@ -203,6 +270,8 @@ impl TryFrom<FindProcessesParams> for Filter {
             min_read_from_disk: params.min_read_from_disk,
             min_written_to_disk: params.min_written_to_disk,
             name_regex,
+            tcp_port: params.tcp_port,
+            udp_port: params.udp_port,
         })
     }
 }
