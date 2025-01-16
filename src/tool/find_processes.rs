@@ -14,6 +14,7 @@ use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System};
 /// Parameters specific to the FindProcesses tool.
 #[derive(Deserialize, JsonSchema)]
 pub struct FindProcessesParams {
+    detailed_output: Option<bool>,
     #[schemars(description = "Percentage")]
     max_cpu_usage: Option<f32>,
     #[schemars(description = "In bytes")]
@@ -40,12 +41,28 @@ pub struct FindProcessesParams {
 /// An output specific to the FindProcesses tool.
 #[derive(Debug, JsonSchema, Serialize)]
 pub struct FindProcessesOutput {
+    #[serde(flatten)]
+    details: Option<FindProcessesOutputDetails>,
+    name: String,
+    pid: u32,
+}
+
+impl FindProcessesOutput {
+    pub fn details(&self) -> &FindProcessesOutputDetails {
+        self.details.as_ref().unwrap()
+    }
+
+    pub fn details_mut(&mut self) -> &mut FindProcessesOutputDetails {
+        self.details.as_mut().unwrap()
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+pub struct FindProcessesOutputDetails {
     cmd: Vec<String>,
     cpu_usage: f32,
     exe: Option<PathBuf>,
     memory: u64,
-    name: String,
-    pid: u32,
     read_from_disk: u64,
     tcp_ports: Vec<u16>,
     udp_ports: Vec<u16>,
@@ -56,20 +73,22 @@ impl From<&Process> for FindProcessesOutput {
     fn from(process: &Process) -> Self {
         let disk_usage = process.disk_usage();
         Self {
-            cmd: process
-                .cmd()
-                .iter()
-                .map(|s| s.to_string_lossy().to_string())
-                .collect(),
-            cpu_usage: process.cpu_usage(),
-            exe: process.exe().map(ToOwned::to_owned),
-            memory: process.memory(),
+            details: Some(FindProcessesOutputDetails {
+                cmd: process
+                    .cmd()
+                    .iter()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .collect(),
+                cpu_usage: process.cpu_usage(),
+                exe: process.exe().map(ToOwned::to_owned),
+                memory: process.memory(),
+                read_from_disk: disk_usage.total_read_bytes,
+                tcp_ports: Vec::new(),
+                udp_ports: Vec::new(),
+                written_to_disk: disk_usage.total_written_bytes,
+            }),
             name: process.name().to_string_lossy().to_string(),
             pid: process.pid().as_u32(),
-            read_from_disk: disk_usage.total_read_bytes,
-            tcp_ports: Vec::new(),
-            udp_ports: Vec::new(),
-            written_to_disk: disk_usage.total_written_bytes,
         }
     }
 }
@@ -120,10 +139,10 @@ impl FindProcesses {
                 };
                 match &si.protocol_socket_info {
                     Tcp(tcp_si) => {
-                        process.tcp_ports.push(tcp_si.local_port);
+                        process.details_mut().tcp_ports.push(tcp_si.local_port);
                     }
                     Udp(udp_si) => {
-                        process.udp_ports.push(udp_si.local_port);
+                        process.details_mut().udp_ports.push(udp_si.local_port);
                     }
                 };
             }
@@ -146,16 +165,21 @@ impl Tool for FindProcesses {
         params: FindProcessesParams,
         _cancel: Arc<AtomicBool>,
     ) -> Result<impl Iterator<Item = FindProcessesOutput> + 'static, Error> {
+        let detailed_output = params.detailed_output.unwrap_or_default();
         let filter: Filter = params.try_into()?;
 
         let mut processes = Self::get_processes();
         Self::add_net_ports(&mut processes)?;
 
-        let processes: Vec<_> = processes
+        let mut processes: Vec<_> = processes
             .into_values()
             .map(FindProcessesOutput::from)
             .filter(|p| filter.is_matching(p))
             .collect();
+
+        if !detailed_output {
+            processes.iter_mut().for_each(|p| p.details = None);
+        }
 
         Ok(processes.into_iter())
     }
@@ -178,49 +202,49 @@ struct Filter {
 impl Filter {
     fn is_matching(&self, process: &FindProcessesOutput) -> bool {
         if let Some(min_cpu_usage) = self.min_cpu_usage {
-            if process.cpu_usage < min_cpu_usage {
+            if process.details().cpu_usage < min_cpu_usage {
                 return false;
             }
         }
 
         if let Some(max_cpu_usage) = self.max_cpu_usage {
-            if process.cpu_usage > max_cpu_usage {
+            if process.details().cpu_usage > max_cpu_usage {
                 return false;
             }
         }
 
         if let Some(min_memory) = self.min_memory {
-            if process.memory < min_memory {
+            if process.details().memory < min_memory {
                 return false;
             }
         }
 
         if let Some(max_memory) = self.max_memory {
-            if process.memory > max_memory {
+            if process.details().memory > max_memory {
                 return false;
             }
         }
 
         if let Some(min_read_from_disk) = self.min_read_from_disk {
-            if process.read_from_disk < min_read_from_disk {
+            if process.details().read_from_disk < min_read_from_disk {
                 return false;
             }
         }
 
         if let Some(max_read_from_disk) = self.max_read_from_disk {
-            if process.read_from_disk > max_read_from_disk {
+            if process.details().read_from_disk > max_read_from_disk {
                 return false;
             }
         }
 
         if let Some(min_written_to_disk) = self.min_written_to_disk {
-            if process.written_to_disk < min_written_to_disk {
+            if process.details().written_to_disk < min_written_to_disk {
                 return false;
             }
         }
 
         if let Some(max_written_to_disk) = self.max_written_to_disk {
-            if process.written_to_disk > max_written_to_disk {
+            if process.details().written_to_disk > max_written_to_disk {
                 return false;
             }
         }
@@ -233,20 +257,20 @@ impl Filter {
 
         if let Some(tcp_port) = &self.tcp_port {
             if *tcp_port != 0 {
-                if !process.tcp_ports.iter().any(|p| p == tcp_port) {
+                if !process.details().tcp_ports.iter().any(|p| p == tcp_port) {
                     return false;
                 }
-            } else if process.tcp_ports.is_empty() {
+            } else if process.details().tcp_ports.is_empty() {
                 return false;
             }
         }
 
         if let Some(udp_port) = &self.udp_port {
             if *udp_port != 0 {
-                if !process.udp_ports.iter().any(|p| p == udp_port) {
+                if !process.details().udp_ports.iter().any(|p| p == udp_port) {
                     return false;
                 }
-            } else if process.udp_ports.is_empty() {
+            } else if process.details().udp_ports.is_empty() {
                 return false;
             }
         }
