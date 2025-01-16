@@ -1,20 +1,25 @@
 pub mod ollama;
+pub mod open_ai;
 
-use std::collections::HashMap;
-
+use crate::{
+    llm::{
+        ollama::{OllamaClient, OllamaConfig},
+        open_ai::{OpenAiClient, OpenAiConfig},
+    },
+    tool::ToolMeta,
+};
 use chrono::{DateTime, Utc};
-use ollama::{OllamaClient, OllamaConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use std::collections::HashMap;
 use strfmt::strfmt;
 use sys_locale::get_locale;
 
-use crate::tool::ToolMeta;
-
 #[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum LlmApi {
     Ollama,
+    OpenAi,
 }
 
 /// An LLM API configuration.
@@ -22,6 +27,7 @@ pub enum LlmApi {
 pub struct LlmConfig {
     pub api: LlmApi,
     pub ollama: Option<OllamaConfig>,
+    pub open_ai: Option<OpenAiConfig>,
     pub query_fmt: String,
 }
 
@@ -36,6 +42,18 @@ pub enum Error {
     ),
     #[error("malformed config: {0}")]
     MalformedConfig(&'static str),
+    #[error("failed to (de)serialize json")]
+    SerdeJson(
+        #[from]
+        #[source]
+        serde_json::Error,
+    ),
+    #[error("failed to expand environment variables")]
+    Shellexpend(
+        #[from]
+        #[source]
+        shellexpand::LookupError<std::env::VarError>,
+    ),
     #[error("ureq error")]
     Ureq(
         #[from]
@@ -68,12 +86,19 @@ pub type BoxLlm = Box<dyn LlmClient>;
 
 /// Creates an LLM API client.
 pub fn create_llm_client(config: &LlmConfig, tools: Vec<ToolMeta>) -> Result<BoxLlm, Error> {
+    use LlmApi::*;
     match config.api {
-        LlmApi::Ollama => {
-            let Some(ollama_config) = &config.ollama else {
+        Ollama => {
+            let Some(config) = &config.ollama else {
                 return Err(Error::MalformedConfig("missing ollama config"));
             };
-            Ok(OllamaClient::new_boxed(ollama_config.clone(), tools))
+            Ok(OllamaClient::new_boxed(config.clone(), tools))
+        }
+        OpenAi => {
+            let Some(config) = &config.open_ai else {
+                return Err(Error::MalformedConfig("missing open ai config"));
+            };
+            Ok(OpenAiClient::new_boxed(config.clone(), tools))
         }
     }
 }

@@ -1,9 +1,11 @@
 use crate::{
-    llm::{BoxLlm, Error, LlmClient, ToolCall},
+    llm::{
+        open_ai::{create_request_tools, RequestTool, Role},
+        BoxLlm, Error, LlmClient, ToolCall,
+    },
     tool::ToolMeta,
 };
 use log::{debug, log_enabled};
-use schemars::schema::SingleOrVec;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use url::Url;
@@ -56,37 +58,6 @@ impl LlmClient for OllamaClient {
     }
 }
 
-fn create_request_tools(tools: Vec<ToolMeta>) -> Vec<RequestTool> {
-    tools
-        .into_iter()
-        .map(|t| {
-            let mut params = t.params_schema.schema.object.unwrap();
-
-            // Enforce single instance types since Ollama doesn't support arrays.
-            for (_, property) in params.properties.iter_mut() {
-                let mut property_object = property.clone().into_object();
-                property_object.instance_type = property_object.instance_type.map(|t| match t {
-                    SingleOrVec::Vec(mut v) => SingleOrVec::Single(Box::new(v.remove(0))),
-                    s => s,
-                });
-                *property = property_object.into();
-            }
-
-            let properties = serde_json::to_string(&params.properties).unwrap();
-            let properties = RawValue::from_string(properties).unwrap();
-
-            let required: Vec<String> = params.required.into_iter().collect();
-
-            let function = RequestToolFunction {
-                name: t.name,
-                description: t.description,
-                parameters: RequestToolParameters::new(required, properties),
-            };
-            RequestTool::new(function)
-        })
-        .collect()
-}
-
 fn create_tool_call(response: ChatResponsePayload) -> Option<ToolCall> {
     let mut calls = response.message.tool_calls;
     if calls.len() == 1 {
@@ -108,61 +79,12 @@ struct ChatRequestPayload {
     tools: Vec<RequestTool>,
 }
 
-#[allow(dead_code)]
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-enum Role {
-    Assistant,
-    System,
-    Tool,
-    User,
-}
-
 #[derive(Deserialize, Serialize)]
 struct Message {
     role: Role,
     content: String,
     #[serde(default)]
     tool_calls: Vec<ResponseToolCall>,
-}
-
-#[derive(Clone, Serialize)]
-struct RequestTool {
-    r#type: &'static str,
-    function: RequestToolFunction,
-}
-
-impl RequestTool {
-    fn new(function: RequestToolFunction) -> Self {
-        Self {
-            r#type: "function",
-            function,
-        }
-    }
-}
-
-#[derive(Clone, Serialize)]
-struct RequestToolFunction {
-    name: String,
-    description: Option<String>,
-    parameters: RequestToolParameters,
-}
-
-#[derive(Clone, Serialize)]
-struct RequestToolParameters {
-    r#type: &'static str,
-    required: Vec<String>,
-    properties: Box<RawValue>,
-}
-
-impl RequestToolParameters {
-    fn new(required: Vec<String>, properties: Box<RawValue>) -> Self {
-        Self {
-            r#type: "object",
-            required,
-            properties,
-        }
-    }
 }
 
 #[derive(Deserialize)]
