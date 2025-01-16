@@ -16,10 +16,18 @@ pub struct FindProcessesParams {
     max_cpu_usage: Option<f32>,
     #[schemars(description = "In bytes")]
     max_memory: Option<u64>,
+    #[schemars(description = "In Bytes")]
+    max_read_from_disk: Option<u64>,
+    #[schemars(description = "In Bytes")]
+    max_written_to_disk: Option<u64>,
     #[schemars(description = "Percentage")]
     min_cpu_usage: Option<f32>,
     #[schemars(description = "In bytes")]
     min_memory: Option<u64>,
+    #[schemars(description = "In Bytes")]
+    min_read_from_disk: Option<u64>,
+    #[schemars(description = "In Bytes")]
+    min_written_to_disk: Option<u64>,
     name_regex: Option<String>,
 }
 
@@ -32,10 +40,13 @@ pub struct FindProcessesOutput {
     memory: u64,
     name: String,
     pid: u32,
+    read_from_disk: u64,
+    written_to_disk: u64,
 }
 
 impl From<&Process> for FindProcessesOutput {
     fn from(process: &Process) -> Self {
+        let disk_usage = process.disk_usage();
         Self {
             cmd: process
                 .cmd()
@@ -47,6 +58,8 @@ impl From<&Process> for FindProcessesOutput {
             memory: process.memory(),
             name: process.name().to_string_lossy().to_string(),
             pid: process.pid().as_u32(),
+            read_from_disk: disk_usage.total_read_bytes,
+            written_to_disk: disk_usage.total_written_bytes,
         }
     }
 }
@@ -106,8 +119,12 @@ impl Tool for FindProcesses {
 struct Filter {
     max_cpu_usage: Option<f32>,
     max_memory: Option<u64>,
+    max_read_from_disk: Option<u64>,
+    max_written_to_disk: Option<u64>,
     min_cpu_usage: Option<f32>,
     min_memory: Option<u64>,
+    min_read_from_disk: Option<u64>,
+    min_written_to_disk: Option<u64>,
     name_regex: Option<Regex>,
 }
 
@@ -137,6 +154,30 @@ impl Filter {
             }
         }
 
+        if let Some(min_read_from_disk) = self.min_read_from_disk {
+            if process.read_from_disk < min_read_from_disk {
+                return false;
+            }
+        }
+
+        if let Some(max_read_from_disk) = self.max_read_from_disk {
+            if process.read_from_disk > max_read_from_disk {
+                return false;
+            }
+        }
+
+        if let Some(min_written_to_disk) = self.min_written_to_disk {
+            if process.written_to_disk < min_written_to_disk {
+                return false;
+            }
+        }
+
+        if let Some(max_written_to_disk) = self.max_written_to_disk {
+            if process.written_to_disk > max_written_to_disk {
+                return false;
+            }
+        }
+
         if let Some(name_regex) = &self.name_regex {
             if !name_regex.is_match(&process.name) {
                 return false;
@@ -155,8 +196,12 @@ impl TryFrom<FindProcessesParams> for Filter {
         Ok(Self {
             max_cpu_usage: params.max_cpu_usage,
             max_memory: params.max_memory,
+            max_read_from_disk: params.max_read_from_disk,
+            max_written_to_disk: params.max_written_to_disk,
             min_cpu_usage: params.min_cpu_usage,
             min_memory: params.min_memory,
+            min_read_from_disk: params.min_read_from_disk,
+            min_written_to_disk: params.min_written_to_disk,
             name_regex,
         })
     }
