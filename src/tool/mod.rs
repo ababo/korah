@@ -85,14 +85,23 @@ pub struct ToolMeta {
     pub _output_schema: RootSchema,
 }
 
+impl ToolMeta {
+    /// Strip JSON-schema of the tool parameters.
+    pub fn strip_params(mut self) -> Self {
+        #[derive(JsonSchema)]
+        struct Empty {}
+        self.params_schema = schema_for!(Empty);
+        self
+    }
+}
+
+/// A boxed iterator for tool output JSONs.
+pub type BoxOutputIter = Box<dyn Iterator<Item = Box<RawValue>> + 'static>;
+
 /// A tool wrapper for dynamic dispatch.
 pub trait DynTool {
     /// Calls the tool with given parameters getting an output iterator.
-    fn call(
-        &self,
-        params: Box<RawValue>,
-        cancel: Arc<AtomicBool>,
-    ) -> Result<Box<dyn Iterator<Item = Box<RawValue>> + 'static>, Error>;
+    fn call(&self, params: Box<RawValue>, cancel: Arc<AtomicBool>) -> Result<BoxOutputIter, Error>;
 
     /// Tool metadata.
     fn meta(&self) -> ToolMeta;

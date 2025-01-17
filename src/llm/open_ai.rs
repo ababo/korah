@@ -2,7 +2,6 @@ use crate::{
     llm::{BoxLlm, Error, LlmClient, ToolCall},
     tool::ToolMeta,
 };
-use log::{debug, log_enabled};
 use schemars::schema::SingleOrVec;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -19,32 +18,31 @@ pub struct OpenAiConfig {
 /// An Ollama API client.
 pub struct OpenAiClient {
     config: OpenAiConfig,
-    tools: Vec<RequestTool>,
 }
 
 impl OpenAiClient {
     /// Creates a boxed Ollama instance.
-    pub fn new_boxed(config: OpenAiConfig, tools: Vec<ToolMeta>) -> BoxLlm {
-        let tools = create_request_tools(tools);
-        if log_enabled!(log::Level::Debug) {
-            debug!("ollama tools {}", serde_json::to_string(&tools).unwrap());
-        }
-        Box::new(Self { config, tools })
+    pub fn new_boxed(config: OpenAiConfig) -> BoxLlm {
+        Box::new(Self { config })
     }
 }
 
 impl LlmClient for OpenAiClient {
-    fn derive_tool_call(&self, query: &str) -> Result<Option<ToolCall>, Error> {
+    fn derive_tool_call(
+        &self,
+        tools: Vec<ToolMeta>,
+        query: String,
+    ) -> Result<Option<ToolCall>, Error> {
         let messages = vec![Message {
             role: Role::User,
-            content: Some(query.to_owned()),
+            content: Some(query),
             tool_calls: vec![],
         }];
         let request = ChatRequestPayload {
             model: self.config.model.clone(),
             messages,
             stream: false,
-            tools: self.tools.clone(),
+            tools: create_request_tools(tools),
         };
 
         let mut url = self.config.base_url.clone();

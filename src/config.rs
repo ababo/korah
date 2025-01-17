@@ -22,6 +22,7 @@ pub enum Error {
 /// A program configuration.
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    pub double_pass_derive: bool,
     pub llm: LlmConfig,
     pub num_derive_tries: u32,
 }

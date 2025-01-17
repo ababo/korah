@@ -1,3 +1,8 @@
+# Derive tool and parameters in two passes.
+# Reduces token usage, but increases response time due to an extra request.
+double_pass_derive = false
+
+# The number of tries to derive a tool call.
 num_derive_tries = 3
 
 [llm]

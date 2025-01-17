@@ -69,7 +69,7 @@ impl From<ureq::Error> for Error {
 }
 
 /// A tool call derived by LLM.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ToolCall {
     pub tool: String,
     pub params: Box<RawValue>,
@@ -78,29 +78,33 @@ pub struct ToolCall {
 /// An LLM API client.
 pub trait LlmClient {
     /// Derives a tool call from a given query.
-    fn derive_tool_call(&self, query: &str) -> Result<Option<ToolCall>, Error>;
+    fn derive_tool_call(
+        &self,
+        tools: Vec<ToolMeta>,
+        query: String,
+    ) -> Result<Option<ToolCall>, Error>;
 }
 
 /// An owned dynamically typed LLM API client.
 pub type BoxLlm = Box<dyn LlmClient>;
 
 /// Creates an LLM API client.
-pub fn create_llm_client(config: &LlmConfig, tools: Vec<ToolMeta>) -> Result<BoxLlm, Error> {
+pub fn create_llm_client(config: &LlmConfig) -> Result<BoxLlm, Error> {
     use LlmApi::*;
-    match config.api {
+    Ok(match config.api {
         Ollama => {
             let Some(config) = &config.ollama else {
                 return Err(Error::MalformedConfig("missing ollama config"));
             };
-            Ok(OllamaClient::new_boxed(config.clone(), tools))
+            OllamaClient::new_boxed(config.clone())
         }
         OpenAi => {
             let Some(config) = &config.open_ai else {
                 return Err(Error::MalformedConfig("missing open ai config"));
             };
-            Ok(OpenAiClient::new_boxed(config.clone(), tools))
+            OpenAiClient::new_boxed(config.clone())
         }
-    }
+    })
 }
 
 /// An LLM query context.

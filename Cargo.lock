@@ -649,6 +649,7 @@ dependencies = [
  "chrono",
  "clap",
  "ctrlc",
+ "either",
  "env_logger",
  "log",
  "netstat2",
