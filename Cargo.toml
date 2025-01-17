@@ -1,6 +1,9 @@
 [package]
 name = "korah"
 version = "0.1.0"
+description = "A CLI utility for natural language queries"
+license = "MIT OR Apache-2.0"
+authors = ["Simon Golbert <simon.golbert@proton.me>"]
 edition = "2021"
 
 [dependencies]
