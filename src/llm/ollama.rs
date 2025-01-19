@@ -14,6 +14,40 @@ use url::Url;
 pub struct OllamaConfig {
     pub base_url: Url,
     pub model: String,
+    #[serde(flatten)]
+    pub options: OllamaOptions,
+}
+
+/// Ollama request options.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OllamaOptions {
+    frequency_penalty: Option<f32>,
+    low_vram: Option<bool>,
+    main_gpu: Option<i32>,
+    min_p: Option<f32>,
+    mirostat_eta: Option<f32>,
+    mirostat_tau: Option<f32>,
+    mirostat: Option<i32>,
+    num_batch: Option<i32>,
+    num_ctx: Option<i32>,
+    num_gpu: Option<i32>,
+    num_keep: Option<i32>,
+    num_predict: Option<i32>,
+    num_thread: Option<i32>,
+    numa: Option<bool>,
+    penalize_newline: Option<bool>,
+    presence_penalty: Option<f32>,
+    repeat_last_n: Option<f32>,
+    repeat_penalty: Option<f32>,
+    seed: Option<i32>,
+    stop: Option<Vec<String>>,
+    temperature: Option<f32>,
+    top_k: Option<i32>,
+    top_p: Option<f32>,
+    typical_p: Option<f32>,
+    use_mlock: Option<bool>,
+    use_mmap: Option<bool>,
+    vocab_only: Option<bool>,
 }
 
 /// An Ollama API client.
@@ -44,6 +78,7 @@ impl LlmClient for OllamaClient {
             messages,
             stream: false,
             tools: create_request_tools(tools),
+            options: self.config.options.clone(),
         };
 
         let mut url = self.config.base_url.clone();
@@ -75,6 +110,7 @@ struct ChatRequestPayload {
     messages: Vec<Message>,
     stream: bool,
     tools: Vec<RequestTool>,
+    options: OllamaOptions,
 }
 
 #[derive(Deserialize, Serialize)]

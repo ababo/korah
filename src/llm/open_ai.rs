@@ -13,6 +13,17 @@ pub struct OpenAiConfig {
     pub base_url: Url,
     pub key: String,
     pub model: String,
+    #[serde(flatten)]
+    pub options: OpenAiOptions,
+}
+
+// OpenAI request options.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OpenAiOptions {
+    max_completion_tokens: Option<i32>,
+    seed: Option<i32>,
+    temperature: Option<f32>,
+    top_p: Option<f32>,
 }
 
 /// An Ollama API client.
@@ -43,6 +54,7 @@ impl LlmClient for OpenAiClient {
             messages,
             stream: false,
             tools: create_request_tools(tools),
+            options: self.config.options.clone(),
         };
 
         let mut url = self.config.base_url.clone();
@@ -60,11 +72,13 @@ impl LlmClient for OpenAiClient {
 }
 
 #[derive(Serialize)]
-pub(in crate::llm) struct ChatRequestPayload {
+struct ChatRequestPayload {
     model: String,
     messages: Vec<Message>,
     stream: bool,
     tools: Vec<RequestTool>,
+    #[serde(flatten)]
+    options: OpenAiOptions,
 }
 
 #[allow(dead_code)]
